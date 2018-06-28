@@ -1,22 +1,17 @@
+#!/usr/bin/env python3
 import json
 from client import MHGClient
 from mhg import MHGComic, MHGVolume
-import multiprocess.pool
+import multiprocessing.pool
 
-def get_pages(comic: MHGComic):
-    for volume in comic.volumes:
-        for page in volume.pages:
-            yield page
 
-def retrieve_page(page):
-    page.retrieve()
+def retrieve(target):
+    target.retrieve()
 
 if __name__ == '__main__':
     with open('config.json', encoding='utf8') as f:
         opts = json.load(f)
-    client = MHGClient(opts)
-    comic_uri = input('请输入漫画索引页地址: ')
-    comic = MHGComic(comic_uri, opts=opts)
-    pool = multiprocess.pool.Pool(1)
-    pages = list(get_pages(comic))
-    pool.map(retrieve_page, pages)
+    # comic_uri = input('Please input comic album url: ')
+    comic = MHGComic('https://tw.manhuagui.com/comic/4070/', opts=opts)
+    pool = multiprocessing.pool.Pool(opts.connections)
+    pool.map(retrieve, comic.volumes)

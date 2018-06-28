@@ -8,8 +8,9 @@ import node
 import copy
 import os
 
+
 class MHGComic:
-    def __init__(self, uri: str, client: MHGClient = None, opts = None):
+   def __init__(self, uri: str, client: MHGClient = None, opts = None):
         self.uri = uri
         self.client = client if client else MHGClient(opts)
         self.volumes = list(self.get_volumes())
@@ -22,9 +23,14 @@ class MHGComic:
             sub_header=sub_header
         )
         anchors = comic_soup.select('.chapter-list > ul > li > a')
-        for anchor in anchors:
+        count=0
+        for anchor in reversed(anchors):
             link = anchor.get('href')
-            volume_name = str(next(anchor.select_one('span').children))
+            volume_name = anchor.get('title')
+            # volume_name = str(next(anchor.select_one('span').children))
+            count+=1
+            if count < 50:
+                continue
             volume = MHGVolume(urllib.parse.urljoin(self.uri, link), title, volume_name, self.client)
             print(volume)
             yield volume
@@ -35,8 +41,6 @@ class MHGVolume:
         self.title = title
         self.volume_name = volume_name
         self.client = client
-        self.pages_opts = self.get_pages_opts()
-        self.pages = list(self.get_pages())
     def __repr__(self):
         return '<MHGVolume [{title} - {volume_name}]>'.format(
             title=self.title,
@@ -63,6 +67,12 @@ class MHGVolume:
             page_opts['title'] = self.title
             page_opts['volume_name'] = self.volume_name
             yield MHGPage(page_opts, self.client)
+    def retrieve(self):
+        self.pages_opts = self.get_pages_opts()
+        self.pages = list(self.get_pages())
+        for idx, page in enumerate(self.pages):
+            page.retrieve()
+            print('Downloading Volume {}[{:.2%}%] - {}'.format(self.volume_name, idx/len(self.pages), page.storage_file_name))
 
 class MHGPage:
     def __init__(self, opts, client: MHGClient):

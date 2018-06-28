@@ -105,3 +105,9 @@ venv.bak/
 
 # Default location for downloaded files
 data/
+
+# Mac OS FS meta file
+.DS_Store
+
+# VS code setting folder
+.vscode/

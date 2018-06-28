@@ -6,6 +6,7 @@ import random
 from retry import requests_retry_session
 from retry2 import retry2
 
+
 class MHGClient:
     def __init__(self, opts):
         self.opts = opts
@@ -18,6 +19,7 @@ class MHGClient:
             'User-Agent': opts['user_agent']
         })
         self.chunk_size = opts['chunk_size'] if opts['chunk_size'] else 512
+
     @property
     def proxy(self):
         if 'proxy' in self.opts.keys():
@@ -27,15 +29,18 @@ class MHGClient:
             }
         else:
             return None
+
     def get(self, uri: str, **kwargs):
         res = retry2(
             lambda: self.session.get(uri, proxies=self.proxy, **kwargs)
         )
         if 'sleep' in self.opts.keys(): self.sleep()
         return res
+
     def get_soup(self, uri: str, **kwargs):
         res = self.get(uri, **kwargs)
         return bs4.BeautifulSoup(res.text, 'html.parser')
+
     def retrieve(self, uri: str, dst: str, **kwargs):
         with open(dst, 'wb') as f:
             res = retry2(
@@ -44,5 +49,6 @@ class MHGClient:
             for chunk in res.iter_content(chunk_size=self.chunk_size):
                 if chunk: f.write(chunk)
         if 'sleep' in self.opts.keys(): self.sleep()
+
     def sleep(self):
         time.sleep(random.randrange(*self.opts['sleep']) / 1000)
