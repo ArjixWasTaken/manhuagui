@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 import json
 import sys
-from client import MHGClient
-from mhg import MHGComic, MHGVolume
+from mhg import MHGComic
 import multiprocessing.pool
-
 
 
 def retrieve(target):
     target.retrieve()
+
 
 if __name__ == '__main__':
     comic_start_from = 1
