@@ -2,11 +2,18 @@ from client import MHGClient
 import urllib
 import re
 import lzstring
+import bs4
 import json
 import node
 import copy
 import os
 import shutil
+import logging
+
+
+logger = logging.getLogger('manguagui')
+logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.INFO)
 
 
 class MHGComic:
@@ -19,8 +26,14 @@ class MHGComic:
         comic_soup = self.client.get_soup(self.uri)
         title = comic_soup.select_one('.book-detail > .book-title > h1').text
         anchors = comic_soup.select('.chapter-list > ul > li > a')
+        if not anchors: # for adult only pages, decrypt the chapters
+            soup = lzstring.LZString().decompressFromBase64(comic_soup.find('input', id='__VIEWSTATE')['value'])
+            anchors = bs4.BeautifulSoup(soup, 'html.parser').select('.chapter-list > ul > li > a')
+        logger.debug('soup=' + str(comic_soup))
+        logger.debug('title=' + title)
+        logger.debug('anchors=' + str(anchors))
         print("Fetching volume list ...")
-        for anchor in anchors:
+        for anchor in reversed(anchors):
             link = anchor.get('href')
             volume_name = anchor.get('title')
             volume_number = re.search(r"\d+", volume_name)
@@ -39,7 +52,7 @@ class MHGVolume:
         self.client = client
 
     def __repr__(self):
-        return '< [{title} - {volume_name}] >'.format(
+        return '- [{title} : {volume_name}]'.format(
             title=self.title,
             volume_name=self.volume_name,
             uri=self.uri
@@ -68,20 +81,26 @@ class MHGVolume:
             yield MHGPage(page_opts, self.client)
 
     def retrieve(self):
+        volume_path = os.path.join(self.client.opts['download_dir'], self.title, self.volume_name)
+
+        # skip this volume if .zip already exists
+        if os.path.isfile(volume_path + '.zip'):
+            print("  >> {:30s} [Skipped]".format(self.volume_name))
+            return
+
         self.pages_opts = self.get_pages_opts()
         self.pages = list(self.get_pages())
-        volume_skipped = True
         for idx, page in enumerate(self.pages):
-            if page.retrieve():
-                print("Downloading Volume - {:>30s}\t[{:2.2f}%] : {}\r".format(
-                    self.volume_name, idx / len(self.pages) * 100, page.storage_file_name), end='', flush=True)
-                volume_skipped = False
-        if volume_skipped:
-            print("Volume - {:>30s} [Failed] !".format(self.volume_name))
-            return
-        print("Volume - {:>30s} [Completed].".format(self.volume_name))
+            if not page.retrieve():
+                print("  >> {:>30s} [Failed]! <<".format(self.volume_name), flush=True)
+                return
+            print("Fetch: {:30s}\t[{:2.2f}%]: {}\r"
+                  .format(self.volume_name, idx / len(self.pages) * 100, page.storage_file_name),
+                  end='',
+                  flush=True)
+
+        print("  >> {:30s} [Completed]".format(self.volume_name), flush=True)
         # zip current volume
-        volume_path = os.path.join(self.client.opts['download_dir'], self.title, self.volume_name)
         shutil.make_archive(volume_path,
                             "zip",
                             os.path.join(self.client.opts['download_dir'], self.title),
@@ -118,8 +137,8 @@ class MHGPage:
     def retrieve(self):
         dir_path = os.path.join(self.client.opts['download_dir'], self.dir_name)
         file_path = os.path.join(dir_path, self.storage_file_name)
-        if os.path.exists(file_path):
-            return False
+        # if os.path.exists(file_path):
+        #     return False
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         self.client.retrieve(

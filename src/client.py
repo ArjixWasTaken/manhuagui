@@ -2,7 +2,6 @@ import requests
 import bs4
 import time
 import random
-
 from retry import requests_retry_session
 from retry2 import retry2
 
@@ -10,9 +9,10 @@ from retry2 import retry2
 class MHGClient:
     def __init__(self, opts):
         self.opts = opts
-        self.session = requests.session()
+        self.session = requests.Session()
         if 'backoff_factor' in opts.keys():
             self.session = requests_retry_session(
+                retries=opts['retry'],
                 session=self.session,
                 backoff_factor=opts['backoff_factor'])
         self.session.headers.update({
@@ -34,7 +34,8 @@ class MHGClient:
         res = retry2(
             lambda: self.session.get(uri, proxies=self.proxy, **kwargs)
         )
-        if 'sleep' in self.opts.keys(): self.sleep()
+        if 'sleep' in self.opts.keys():
+            self.sleep()
         return res
 
     def get_soup(self, uri: str, **kwargs):
@@ -47,8 +48,10 @@ class MHGClient:
                 lambda: self.session.get(uri, stream=True, proxies=self.proxy, **kwargs)
             )
             for chunk in res.iter_content(chunk_size=self.chunk_size):
-                if chunk: f.write(chunk)
-        if 'sleep' in self.opts.keys(): self.sleep()
+                if chunk:
+                    f.write(chunk)
+        if 'sleep' in self.opts.keys():
+            self.sleep()
 
     def sleep(self):
         time.sleep(random.randrange(*self.opts['sleep']) / 1000)
