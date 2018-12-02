@@ -45,7 +45,9 @@ class MHGClient:
     def retrieve(self, uri: str, dst: str, **kwargs):
         with open(dst, 'wb') as f:
             res = retry2(
-                lambda: self.session.get(uri, stream=True, proxies=self.proxy, **kwargs)
+                lambda: self.session.get(uri, stream=True, proxies=self.proxy, **kwargs),
+                max_retry=self.opts['retry'],
+                backoff_factor=self.opts['backoff_factor']
             )
             for chunk in res.iter_content(chunk_size=self.chunk_size):
                 if chunk:

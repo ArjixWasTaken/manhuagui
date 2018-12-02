@@ -6,6 +6,6 @@
     "download_dir": "/Volumes/Data/#Comics",
     "sleep": [500, 1000],
     "backoff_factor": 0.3,
-    "retry": 5,
-    "connections": 3
+    "retry": 3,
+    "connections": 2
 }

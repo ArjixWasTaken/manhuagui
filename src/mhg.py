@@ -9,11 +9,13 @@ import copy
 import os
 import shutil
 import logging
+import pprint
 
 
 logger = logging.getLogger('manguagui')
 logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.INFO)
+pp = pprint.PrettyPrinter(indent=4)
 
 
 class MHGComic:
@@ -26,20 +28,28 @@ class MHGComic:
         comic_soup = self.client.get_soup(self.uri)
         title = comic_soup.select_one('.book-detail > .book-title > h1').text
         anchors = comic_soup.select('.chapter-list > ul > li > a')
-        if not anchors: # for adult only pages, decrypt the chapters
+        if not anchors:  # for adult only pages, decrypt the chapters
             soup = lzstring.LZString().decompressFromBase64(comic_soup.find('input', id='__VIEWSTATE')['value'])
             anchors = bs4.BeautifulSoup(soup, 'html.parser').select('.chapter-list > ul > li > a')
         logger.debug('soup=' + str(comic_soup))
         logger.debug('title=' + title)
         logger.debug('anchors=' + str(anchors))
         print("Fetching volume list ...")
-        for anchor in reversed(anchors):
-            link = anchor.get('href')
-            volume_name = anchor.get('title')
-            volume_number = re.search(r"\d+", volume_name)
-            if volume_number and int(volume_number[0]) < int(start_from):
+
+        sorted_volume = []
+        for anchor in anchors:
+            vol = {}
+            vol['link'] = anchor.get('href')
+            vol['name'] = anchor.get('title')
+            result = re.search(r"\d+", vol['name'])
+            vol['number'] = float(result[0]) if result else 0
+            sorted_volume.append(vol)
+        sorted_volume.sort(key=lambda x: x['number'])
+
+        for vol in sorted_volume:
+            if vol['number'] <= float(start_from):
                 continue
-            volume = MHGVolume(urllib.parse.urljoin(self.uri, link), title, volume_name, self.client)
+            volume = MHGVolume(urllib.parse.urljoin(self.uri, vol['link']), title, vol['name'], self.client)
             print(volume)
             yield volume
 
@@ -91,13 +101,16 @@ class MHGVolume:
         self.pages_opts = self.get_pages_opts()
         self.pages = list(self.get_pages())
         for idx, page in enumerate(self.pages):
-            if not page.retrieve():
-                print("  >> {:>30s} [Failed]! <<".format(self.volume_name), flush=True)
-                return
-            print("Fetch: {:30s}\t[{:2.2f}%]: {}\r"
-                  .format(self.volume_name, idx / len(self.pages) * 100, page.storage_file_name),
-                  end='',
-                  flush=True)
+            try:
+                page.retrieve()
+                print("Fetch: {:30s}\t[{:2.2f}%]: {}\r"
+                      .format(self.volume_name, (idx + 1) / len(self.pages) * 100, page.storage_file_name),
+                      end='',
+                      flush=True)
+            except Exception:
+                if idx != len(self.pages) - 1: # HACK not sure why some volume's last page will fetch fail. but usually useless page. just ignore it.
+                    print("  >> {:>30s} [Failed] !!!".format(self.volume_name), flush=True)
+                    return
 
         print("  >> {:30s} [Completed]".format(self.volume_name), flush=True)
         # zip current volume
@@ -141,6 +154,7 @@ class MHGPage:
         #     return False
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
+
         self.client.retrieve(
             self.uri,
             file_path,
