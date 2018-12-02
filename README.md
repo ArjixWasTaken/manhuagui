@@ -1,12 +1,19 @@
 # `manhuagui`
 
-A comic downloader for [manhuagui.com](https://tw.manhuagui.com/).
+A cmdline comic downloader for [manhuagui.com](https://tw.manhuagui.com/).
 (Modifed from chazeon/manhuagui.py)
 
-## usage:
+## Features
+- Multiple connections (multi-volumes at the same time)
+- Auto archive (as .zip) each volume(chapter)
+- Auto detect completed volume
+- Auto sort volume list
+- Progress report
+
+## Usage
     python3 ./src/main.py <comic number> [chapter# started from]
 
-## example:
+## Example
 to download https://tw.manhuagui.com/comic/19430/
 
     python3 ./src/main.py 19430    # fetch entirely
