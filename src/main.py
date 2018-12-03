@@ -22,7 +22,8 @@ if __name__ == '__main__':
         comic_id = input('Please input comic ID of manhuagui.com: ')
     try:
         comic = MHGComic(comic_id, start_from=comic_start_from, opts=opts)
-        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN) # ignore SIGINT in child process
+        original_sigint_handler = signal.signal(
+            signal.SIGINT, signal.SIG_IGN)  # ignore SIGINT in child process
         pool = multiprocessing.pool.Pool(opts['connections'])
         signal.signal(signal.SIGINT, original_sigint_handler)
         r = pool.map_async(retrieve, comic.volumes, chunksize=1)

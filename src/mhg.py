@@ -10,7 +10,7 @@ import os
 import shutil
 import logging
 import pprint
-
+import requests
 
 logger = logging.getLogger('manguagui')
 logger.addHandler(logging.StreamHandler())
@@ -29,8 +29,10 @@ class MHGComic:
         title = comic_soup.select_one('.book-detail > .book-title > h1').text
         anchors = comic_soup.select('.chapter-list > ul > li > a')
         if not anchors:  # for adult only pages, decrypt the chapters
-            soup = lzstring.LZString().decompressFromBase64(comic_soup.find('input', id='__VIEWSTATE')['value'])
-            anchors = bs4.BeautifulSoup(soup, 'html.parser').select('.chapter-list > ul > li > a')
+            soup = lzstring.LZString().decompressFromBase64(
+                comic_soup.find('input', id='__VIEWSTATE')['value'])
+            anchors = bs4.BeautifulSoup(soup, 'html.parser').select(
+                '.chapter-list > ul > li > a')
         logger.debug('soup=' + str(comic_soup))
         logger.debug('title=' + title)
         logger.debug('anchors=' + str(anchors))
@@ -49,7 +51,8 @@ class MHGComic:
         for vol in sorted_volume:
             if vol['number'] <= float(start_from):
                 continue
-            volume = MHGVolume(urllib.parse.urljoin(self.uri, vol['link']), title, vol['name'], self.client)
+            volume = MHGVolume(urllib.parse.urljoin(
+                self.uri, vol['link']), title, vol['name'], self.client)
             print(volume)
             yield volume
 
@@ -71,12 +74,16 @@ class MHGVolume:
     def get_pages_opts(self):
         res = self.client.get(self.uri)
         raw_content = res.text
-        res = re.search(r'<script type="text\/javascript">window\["\\x65\\x76\\x61\\x6c"\](.*\)) <\/script>', raw_content).group(1)
-        lz_encoded = re.search(r"'([A-Za-z0-9+/=]+)'\['\\x73\\x70\\x6c\\x69\\x63'\]\('\\x7c'\)", res).group(1)
+        res = re.search(
+            r'<script type="text\/javascript">window\["\\x65\\x76\\x61\\x6c"\](.*\)) <\/script>', raw_content).group(1)
+        lz_encoded = re.search(
+            r"'([A-Za-z0-9+/=]+)'\['\\x73\\x70\\x6c\\x69\\x63'\]\('\\x7c'\)", res).group(1)
         lz_decoded = lzstring.LZString().decompressFromBase64(lz_encoded)
-        res = re.sub(r"'([A-Za-z0-9+/=]+)'\['\\x73\\x70\\x6c\\x69\\x63'\]\('\\x7c'\)", "'%s'.split('|')" % (lz_decoded), res)
+        res = re.sub(r"'([A-Za-z0-9+/=]+)'\['\\x73\\x70\\x6c\\x69\\x63'\]\('\\x7c'\)",
+                     "'%s'.split('|')" % (lz_decoded), res)
         code = node.get_node_output(res)
-        pages_opts = json.loads(re.search(r'^SMH.imgData\((.*)\)\.preInit\(\);$', code).group(1))
+        pages_opts = json.loads(
+            re.search(r'^SMH.imgData\((.*)\)\.preInit\(\);$', code).group(1))
         return pages_opts
 
     def get_pages(self):
@@ -91,7 +98,8 @@ class MHGVolume:
             yield MHGPage(page_opts, self.client)
 
     def retrieve(self):
-        volume_path = os.path.join(self.client.opts['download_dir'], self.title, self.volume_name)
+        volume_path = os.path.join(
+            self.client.opts['download_dir'], self.title, self.volume_name)
 
         # skip this volume if .zip already exists
         if os.path.isfile(volume_path + '.zip'):
@@ -107,16 +115,17 @@ class MHGVolume:
                       .format(self.volume_name, (idx + 1) / len(self.pages) * 100, page.storage_file_name),
                       end='',
                       flush=True)
-            except Exception:
-                if idx != len(self.pages) - 1: # HACK not sure why some volume's last page will fetch fail. but usually useless page. just ignore it.
-                    print("  >> {:>30s} [Failed] !!!".format(self.volume_name), flush=True)
-                    return
+            except requests.exceptions.RetryError:
+                print("  >> {:>30s} [Failed] !!!".format(
+                    self.volume_name), flush=True)
+                return
 
         print("  >> {:30s} [Completed]".format(self.volume_name), flush=True)
         # zip current volume
         shutil.make_archive(volume_path,
                             "zip",
-                            os.path.join(self.client.opts['download_dir'], self.title),
+                            os.path.join(
+                                self.client.opts['download_dir'], self.title),
                             self.volume_name)
         shutil.rmtree(volume_path)
 
@@ -128,13 +137,17 @@ class MHGPage:
 
     @property
     def uri(self):
-        return urllib.parse.urljoin(
+        # HACK
+        # don't encode filename as url, especially '(' and ')'
+        # the remote server has tricky bug on those url (cause 500)
+        url = urllib.parse.urljoin(
             self.client.opts['image_base'],
             urllib.parse.quote(
-                self.opts['path'] + self.opts['file'],
+                self.opts['path'],
                 encoding='utf8'
             )
         )
+        return url + self.opts['file']
 
     @property
     def dir_name(self):
@@ -148,13 +161,15 @@ class MHGPage:
         )
 
     def retrieve(self):
-        dir_path = os.path.join(self.client.opts['download_dir'], self.dir_name)
+        dir_path = os.path.join(
+            self.client.opts['download_dir'], self.dir_name)
         file_path = os.path.join(dir_path, self.storage_file_name)
         # if os.path.exists(file_path):
         #     return False
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
 
+        # print('==', self.uri, file_path)
         self.client.retrieve(
             self.uri,
             file_path,

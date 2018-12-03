@@ -4,6 +4,7 @@ import time
 import random
 from retry import requests_retry_session
 from retry2 import retry2
+import logging
 
 
 class MHGClient:
@@ -18,7 +19,13 @@ class MHGClient:
         self.session.headers.update({
             'User-Agent': opts['user_agent']
         })
+
         self.chunk_size = opts['chunk_size'] if opts['chunk_size'] else 512
+        # logging.basicConfig()
+        # logging.getLogger().setLevel(logging.DEBUG)
+        # requests_log = logging.getLogger("requests.packages.urllib3")
+        # requests_log.setLevel(logging.DEBUG)
+        # requests_log.propagate = True
 
     @property
     def proxy(self):
@@ -45,7 +52,8 @@ class MHGClient:
     def retrieve(self, uri: str, dst: str, **kwargs):
         with open(dst, 'wb') as f:
             res = retry2(
-                lambda: self.session.get(uri, stream=True, proxies=self.proxy, **kwargs),
+                lambda: self.session.get(
+                    uri, stream=True, proxies=self.proxy, **kwargs),
                 max_retry=self.opts['retry'],
                 backoff_factor=self.opts['backoff_factor']
             )

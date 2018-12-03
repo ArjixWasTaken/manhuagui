@@ -2,6 +2,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
+
 def requests_retry_session(
     retries=3,
     backoff_factor=0.3,
@@ -20,5 +21,6 @@ def requests_retry_session(
     session.mount('http://', adapter)
     session.mount('https://', adapter)
     return session
+
 
 __all__ = ['requests_retry_session']
