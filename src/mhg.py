@@ -21,8 +21,10 @@ pp = pprint.PrettyPrinter(indent=4)
 class MHGComic:
     def __init__(self, comic_id: str, start_from=1, client: MHGClient = None, opts=None):
         self.client = client if client else MHGClient(opts)
+        self.id = comic_id
         self.uri = self.client.opts['base_url'] + comic_id + '/'
         self.volumes = list(self.get_volumes(start_from))
+        self.save_record(opts['record_conf'])
 
     def get_volumes(self, start_from):
         comic_soup = self.client.get_soup(self.uri)
@@ -36,7 +38,7 @@ class MHGComic:
         logger.debug('soup=' + str(comic_soup))
         logger.debug('title=' + title)
         logger.debug('anchors=' + str(anchors))
-        print("Fetching volume list ...")
+        print("== Download <{}> ==".format(title))
 
         sorted_volume = []
         for anchor in anchors:
@@ -49,12 +51,26 @@ class MHGComic:
         sorted_volume.sort(key=lambda x: x['number'])
 
         for vol in sorted_volume:
-            if vol['number'] <= float(start_from):
+            if vol['number'] < float(start_from):
                 continue
             volume = MHGVolume(urllib.parse.urljoin(
                 self.uri, vol['link']), title, vol['name'], self.client)
+            if volume.is_skip():
+                continue
             print(volume)
             yield volume
+
+    def save_record(self, record_file):
+        print(self.id, self.volumes[-1].title, self.volumes[-1].volume_name)
+        records = {}
+        if os.path.exists(record_file):
+            with open(record_file, 'r', encoding='utf8') as f:
+                records = json.load(f)
+        with open(record_file, 'w', encoding='utf8') as f:
+            records[self.id] = {'title': self.volumes[-1].title,
+                                'latest': self.volumes[-1].volume_name}
+            json.dump(records, f, ensure_ascii=False,
+                      indent=4, sort_keys=True)
 
 
 class MHGVolume:
@@ -97,12 +113,21 @@ class MHGVolume:
             page_opts['volume_name'] = self.volume_name
             yield MHGPage(page_opts, self.client)
 
-    def retrieve(self):
+    def is_skip(self):
         volume_path = os.path.join(
             self.client.opts['download_dir'], self.title, self.volume_name)
 
         # skip this volume if .zip already exists
         if os.path.isfile(volume_path + '.zip'):
+            return True
+        return False
+
+    def retrieve(self):
+        volume_path = os.path.join(
+            self.client.opts['download_dir'], self.title, self.volume_name)
+
+        # skip this volume if .zip already exists
+        if self.is_skip():
             print("  >> {:30s} [Skipped]".format(self.volume_name))
             return
 
