@@ -20,6 +20,7 @@ def fetch_comic(comic_id, comic_start_from=1):
         signal.signal(signal.SIGINT, original_sigint_handler)
         r = pool.map_async(retrieve, comic.volumes, chunksize=1)
         r.wait()
+        print("[All Done]")
     except KeyboardInterrupt:
         pool.terminate()
 
@@ -43,4 +44,4 @@ if __name__ == '__main__':
             comic_ids = records.keys()
         print(comic_ids)
         for id in comic_ids:
-            fetch_comic(id)
+            fetch_comic(id, comic_start_from=records[id]["number"])

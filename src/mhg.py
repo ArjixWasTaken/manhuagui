@@ -11,6 +11,7 @@ import shutil
 import logging
 import pprint
 import requests
+import time
 
 logger = logging.getLogger('manguagui')
 logger.addHandler(logging.StreamHandler())
@@ -24,11 +25,11 @@ class MHGComic:
         self.id = comic_id
         self.uri = self.client.opts['base_url'] + comic_id + '/'
         self.volumes = list(self.get_volumes(start_from))
-        self.save_record(opts['record_conf'])
 
     def get_volumes(self, start_from):
         comic_soup = self.client.get_soup(self.uri)
-        title = comic_soup.select_one('.book-detail > .book-title > h1').text
+        self.book_title = comic_soup.select_one(
+            '.book-detail > .book-title > h1').text
         anchors = comic_soup.select('.chapter-list > ul > li > a')
         if not anchors:  # for adult only pages, decrypt the chapters
             soup = lzstring.LZString().decompressFromBase64(
@@ -36,9 +37,9 @@ class MHGComic:
             anchors = bs4.BeautifulSoup(soup, 'html.parser').select(
                 '.chapter-list > ul > li > a')
         logger.debug('soup=' + str(comic_soup))
-        logger.debug('title=' + title)
+        logger.debug('title=' + self.book_title)
         logger.debug('anchors=' + str(anchors))
-        print("== Download <{}> ==".format(title))
+        print("== Download <{}> ==".format(self.book_title))
 
         sorted_volume = []
         for anchor in anchors:
@@ -46,29 +47,32 @@ class MHGComic:
             vol['link'] = anchor.get('href')
             vol['name'] = anchor.get('title')
             result = re.search(r"\d+", vol['name'])
-            vol['number'] = float(result[0]) if result else 0
+            vol['number'] = int(result[0]) if result else 0
             sorted_volume.append(vol)
         sorted_volume.sort(key=lambda x: x['number'])
+        self.save_record(self.client.opts['record_conf'], sorted_volume[-1])
 
         for vol in sorted_volume:
-            if vol['number'] < float(start_from):
+            if vol['number'] < int(start_from):
                 continue
             volume = MHGVolume(urllib.parse.urljoin(
-                self.uri, vol['link']), title, vol['name'], self.client)
+                self.uri, vol['link']), self.book_title, vol['name'], self.client)
             if volume.is_skip():
                 continue
             print(volume)
             yield volume
 
-    def save_record(self, record_file):
-        print(self.id, self.volumes[-1].title, self.volumes[-1].volume_name)
+    def save_record(self, record_file, latest_vol):
+        print(self.id, self.book_title, latest_vol['name'])
         records = {}
         if os.path.exists(record_file):
             with open(record_file, 'r', encoding='utf8') as f:
                 records = json.load(f)
         with open(record_file, 'w', encoding='utf8') as f:
-            records[self.id] = {'title': self.volumes[-1].title,
-                                'latest': self.volumes[-1].volume_name}
+            records[self.id] = {'title': self.book_title,
+                                'latest': latest_vol['name'],
+                                'number': latest_vol['number'],
+                                'time': time.asctime(time.localtime())}
             json.dump(records, f, ensure_ascii=False,
                       indent=4, sort_keys=True)
 
