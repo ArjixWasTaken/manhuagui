@@ -20,10 +20,10 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 class MHGComic:
-    def __init__(self, comic_id: str, start_from=1, client: MHGClient = None, opts=None):
+    def __init__(self, comic_id, start_from=1, client: MHGClient = None, opts=None):
         self.client = client if client else MHGClient(opts)
-        self.id = comic_id
-        self.uri = self.client.opts['base_url'] + comic_id + '/'
+        self.id = str(comic_id)
+        self.uri = self.client.opts['base_url'] + str(comic_id) + '/'
         self.volumes = list(self.get_volumes(start_from))
 
     def get_volumes(self, start_from):

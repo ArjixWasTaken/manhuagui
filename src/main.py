@@ -5,6 +5,8 @@ from mhg import MHGComic
 import multiprocessing.pool
 import signal
 import os
+from argparse import ArgumentParser
+# from pprint import pprint
 
 
 def retrieve(target):
@@ -20,28 +22,34 @@ def fetch_comic(comic_id, comic_start_from=1):
         signal.signal(signal.SIGINT, original_sigint_handler)
         r = pool.map_async(retrieve, comic.volumes, chunksize=1)
         r.wait()
-        print("[All Done]")
+        print("[Up to date]")
     except KeyboardInterrupt:
         pool.terminate()
 
 
 if __name__ == '__main__':
-    comic_start_from = 1
     with open('config.json', encoding='utf8') as f:
         opts = json.load(f)
-    if len(sys.argv) > 1 and sys.argv[1].isdigit():
-        comic_id = sys.argv[1]
-        if len(sys.argv) > 2 and sys.argv[2].isdigit():
-            comic_start_from = sys.argv[2]
-    else:
-        comic_id = input('Please input comic ID of manhuagui.com: ')
 
-    if comic_id:
-        fetch_comic(comic_id, comic_start_from)
-    elif os.path.exists(opts['record_conf']):
-        with open(opts['record_conf']) as f:
-            records = json.load(f)
-            comic_ids = records.keys()
-        print(comic_ids)
-        for id in comic_ids:
-            fetch_comic(id, comic_start_from=records[id]["number"])
+    parser = ArgumentParser(prog=sys.argv[0])
+    parser.add_argument("-i", "--id", type=int, help="Comic ID of manguagui.com")
+    parser.add_argument("-c", "--chapter", type=int, help="Which chapter# to start with")
+    parser.add_argument("-a", "--auto", action="store_true", help="Resume/recheck ALL downloads by the records of history file")
+    args = parser.parse_args()
+
+    if args.auto:
+        if os.path.exists(opts['record_conf']):
+            with open(opts['record_conf']) as f:
+                records = json.load(f)
+                comic_ids = records.keys()
+            for id in comic_ids:
+                fetch_comic(id, records[id]["number"])
+        else:
+            print("No history records found.({})".format(opts['record_conf']))
+    elif args.id is not None:
+        if args.chapter is not None:
+            fetch_comic(args.id, args.chapter)
+        else:
+            fetch_comic(args.id)
+    else:
+        parser.print_help()
