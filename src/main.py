@@ -32,7 +32,7 @@ if __name__ == '__main__':
         opts = json.load(f)
 
     parser = ArgumentParser(prog=sys.argv[0])
-    parser.add_argument("-i", "--id", type=int, help="Comic ID of manguagui.com")
+    parser.add_argument("-i", "--id", type=int, nargs="+", help="Comic ID of manguagui.com")
     parser.add_argument("-c", "--chapter", type=int, help="Which chapter# to start with")
     parser.add_argument("-a", "--auto", action="store_true", help="Resume/recheck ALL downloads by the records of history file")
     args = parser.parse_args()
@@ -47,9 +47,14 @@ if __name__ == '__main__':
         else:
             print("No history records found.({})".format(opts['record_conf']))
     elif args.id is not None:
-        if args.chapter is not None:
-            fetch_comic(args.id, args.chapter)
+        if isinstance(args.id, list):
+            ids = args.id
         else:
-            fetch_comic(args.id)
+            ids = [args.id]
+        for id in ids:
+            if args.chapter is not None:
+                fetch_comic(id, args.chapter)
+            else:
+                fetch_comic(id)
     else:
         parser.print_help()
