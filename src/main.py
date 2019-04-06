@@ -8,22 +8,30 @@ import os
 from argparse import ArgumentParser
 # from pprint import pprint
 
+global VERBOSE
+VERBOSE = False
+
+
+def vprint(*args, **kwargs):
+    if VERBOSE:
+        print(*args, **kwargs)
+
 
 def retrieve(target):
     target.retrieve()
 
 
 def fetch_comic(comic_id, comic_start_from=1):
+    original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)  # ignore SIGINT in child process
+    pool = multiprocessing.pool.Pool(opts['connections'])
+    signal.signal(signal.SIGINT, original_sigint_handler)
     try:
         comic = MHGComic(comic_id, start_from=comic_start_from, opts=opts)
-        original_sigint_handler = signal.signal(
-            signal.SIGINT, signal.SIG_IGN)  # ignore SIGINT in child process
-        pool = multiprocessing.pool.Pool(opts['connections'])
-        signal.signal(signal.SIGINT, original_sigint_handler)
-        r = pool.map_async(retrieve, comic.volumes, chunksize=1)
-        r.wait()
-        print("[Up to date]")
+        res = pool.map_async(retrieve, comic.volumes, chunksize=1)
+        res.wait()
+        vprint("[Up to date]")
     except KeyboardInterrupt:
+        print("Caught interrupt. stopped.")
         pool.terminate()
 
 
@@ -35,7 +43,12 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--id", type=int, nargs="+", help="Comic ID of manguagui.com")
     parser.add_argument("-c", "--chapter", type=int, help="Which chapter# to start with")
     parser.add_argument("-a", "--auto", action="store_true", help="Resume/recheck ALL downloads by the records of history file")
+    parser.add_argument("-v", "--verbose", action="store_true", help="verbose output")
     args = parser.parse_args()
+
+    if args.verbose:
+        VERBOSE = True
+        opts['debug'] = True
 
     if args.auto:
         if os.path.exists(opts['record_conf']):
@@ -52,9 +65,10 @@ if __name__ == '__main__':
         else:
             ids = [args.id]
         for id in ids:
-            if args.chapter is not None:
+            if args.chapter is not None:    # do check from the last chapter we downloaded
                 fetch_comic(id, args.chapter)
             else:
                 fetch_comic(id)
     else:
         parser.print_help()
+    print()

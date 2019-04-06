@@ -21,10 +21,18 @@ pp = pprint.PrettyPrinter(indent=4)
 
 class MHGComic:
     def __init__(self, comic_id, start_from=1, client: MHGClient = None, opts=None):
+        self.newline = True
         self.client = client if client else MHGClient(opts)
         self.id = str(comic_id)
         self.uri = self.client.opts['base_url'] + str(comic_id) + '/'
         self.volumes = list(self.get_volumes(start_from))
+        if 'debug' in opts and opts['debug']:
+            logger.setLevel(logging.DEBUG)
+
+    def print_newline(self):
+        if self.newline:
+            print()
+            self.newline = False
 
     def get_volumes(self, start_from):
         comic_soup = self.client.get_soup(self.uri)
@@ -39,7 +47,7 @@ class MHGComic:
         logger.debug('soup=' + str(comic_soup))
         logger.debug('title=' + self.book_title)
         logger.debug('anchors=' + str(anchors))
-        print("== Download <{}> ==".format(self.book_title))
+        print("\r== Checking <{}> == {: >80s}".format(self.book_title, ''), end='')
 
         sorted_volume = []
         for anchor in anchors:
@@ -59,11 +67,12 @@ class MHGComic:
                 self.uri, vol['link']), self.book_title, vol['name'], self.client)
             if volume.is_skip():
                 continue
+            self.print_newline()
             print(volume)
             yield volume
 
     def save_record(self, record_file, latest_vol):
-        print(self.id, self.book_title, latest_vol['name'])
+        # print(self.id, self.book_title, latest_vol['name'])
         records = {}
         if os.path.exists(record_file):
             with open(record_file, 'r', encoding='utf8') as f:
