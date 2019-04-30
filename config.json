@@ -6,7 +6,10 @@
     "download_dir": "/Volumes/Data/#Comics",
     "record_conf": "records.json",
     "sleep": [200, 500],
-    "backoff_factor": 0.3,
-    "retry": 3,
-    "connections": 1
+    "backoff_factor": 0.2,
+    "retry": 1,
+    "retry-proxy": 10,
+    "connections": 2,
+    "proxy": [  "159.203.188.88:8080",
+                "149.56.102.220:3128"]
 }

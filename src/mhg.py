@@ -1,17 +1,18 @@
-from client import MHGClient
-import urllib
-import re
-import lzstring
-import bs4
-import json
-import node
 import copy
-import os
-import shutil
+import json
 import logging
+import multiprocessing.pool
+import os
 import pprint
-import requests
+import re
+import shutil
+import signal
 import time
+import urllib
+import bs4
+import lzstring
+import node
+from client import MHGClient
 
 logger = logging.getLogger('manguagui')
 logger.addHandler(logging.StreamHandler())
@@ -19,8 +20,13 @@ logger.setLevel(logging.INFO)
 pp = pprint.PrettyPrinter(indent=4)
 
 
+def fetchpage(page):
+    page.retrieve()
+    print(" Fetching", page, end='', flush=True)
+
+
 class MHGComic:
-    def __init__(self, comic_id, start_from=1, client: MHGClient = None, opts=None):
+    def __init__(self, opts, comic_id, start_from=1, client: MHGClient = None):
         self.newline = True
         self.client = client if client else MHGClient(opts)
         self.id = str(comic_id)
@@ -85,6 +91,10 @@ class MHGComic:
             json.dump(records, f, ensure_ascii=False,
                       indent=4, sort_keys=True)
 
+    def retrieve(self):
+        for c in self.volumes:
+            c.retrieve()
+
 
 class MHGVolume:
     def __init__(self, uri: str, title: str, volume_name: str, client: MHGClient):
@@ -116,6 +126,7 @@ class MHGVolume:
         return pages_opts
 
     def get_pages(self):
+        self.pages_opts = self.get_pages_opts()
         for i, f in enumerate(self.pages_opts['files']):
             page_opts = copy.deepcopy(self.pages_opts)
             del page_opts['files']
@@ -144,19 +155,31 @@ class MHGVolume:
             print("  >> {:30s} [Skipped]".format(self.volume_name))
             return
 
-        self.pages_opts = self.get_pages_opts()
         self.pages = list(self.get_pages())
-        for idx, page in enumerate(self.pages):
-            try:
-                page.retrieve()
-                print("Fetch: {:30s}\t[{:2.2f}%]: {}\r"
-                      .format(self.volume_name, (idx + 1) / len(self.pages) * 100, page.storage_file_name),
-                      end='',
-                      flush=True)
-            except requests.exceptions.RetryError:
-                print("  >> {:>30s} [Failed] !!!".format(
-                    self.volume_name), flush=True)
-                return
+
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)  # ignore SIGINT in child process
+        pool = multiprocessing.pool.Pool(self.client.opts['connections'])
+        signal.signal(signal.SIGINT, original_sigint_handler)
+
+        try:
+            pool.map(fetchpage, self.pages, chunksize=1)
+            pool.close()
+            pool.join()
+        except KeyboardInterrupt:
+            pool.terminate()
+            return
+
+        # for idx, page in enumerate(self.pages):
+        #     try:
+        #         page.retrieve()
+        #         print("Fetch: {:30s}\t[{:2.2f}%]: {}\r"
+        #               .format(self.volume_name, (idx + 1) / len(self.pages) * 100, page.storage_file_name),
+        #               end='',
+        #               flush=True)
+        #     except requests.exceptions.RetryError:
+        #         print("  >> {:>30s} [Failed] !!!".format(
+        #             self.volume_name), flush=True)
+        #         return
 
         print("  >> {:30s} [Completed]".format(self.volume_name), flush=True)
         # zip current volume
@@ -172,6 +195,9 @@ class MHGPage:
     def __init__(self, opts, client: MHGClient):
         self.opts = opts
         self.client = client
+
+    def __repr__(self):
+        return "{:20s}\t{}\r".format(" ", self.storage_file_name)
 
     @property
     def uri(self):
@@ -205,7 +231,7 @@ class MHGPage:
         # if os.path.exists(file_path):
         #     return False
         if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
+            os.makedirs(dir_path, exist_ok=True)  # fix race condition error
 
         # print('==', self.uri, file_path)
         self.client.retrieve(
