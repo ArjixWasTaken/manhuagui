@@ -20,8 +20,8 @@ python3 ./src/main.py -h
 ## Example
 1. download https://tw.manhuagui.com/comic/19430/
 ````
-python3 ./src/main.py -i 19430			# fetch all chapter/albums
-python3 ./src/main.py -i 19430 -c 20	# start from chapter 21
+python3 ./src/main.py -i 19430        # fetch all chapter/albums
+python3 ./src/main.py -i 19430 -c 20  # start from chapter 21
 ````
 
 1. check and download new comics recorded from local config
