@@ -13,7 +13,9 @@ A cmdline comic downloader for [manhuagui.com](https://tw.manhuagui.com/).
 - Auto download all comics saved locally
 
 ## Usage
-````python3 ./src/main.py -h````
+````
+python3 ./src/main.py -h
+````
 
 ## Example
 1. download https://tw.manhuagui.com/comic/19430/
