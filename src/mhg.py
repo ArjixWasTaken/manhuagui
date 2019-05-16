@@ -1,18 +1,20 @@
 import copy
 import json
 import logging
-import multiprocessing.pool
 import os
 import pprint
 import re
 import shutil
-import signal
+import threading
 import time
 import urllib
+import sys
 import bs4
 import lzstring
+
 import node
 from client import MHGClient
+from proxy import MGHProxy
 
 logger = logging.getLogger('manguagui')
 logger.addHandler(logging.StreamHandler())
@@ -22,7 +24,6 @@ pp = pprint.PrettyPrinter(indent=4)
 
 def fetchpage(page):
     page.retrieve()
-    print(" Fetching", page, end='', flush=True)
 
 
 class MHGComic:
@@ -53,7 +54,8 @@ class MHGComic:
         logger.debug('soup=' + str(comic_soup))
         logger.debug('title=' + self.book_title)
         logger.debug('anchors=' + str(anchors))
-        print("\r== Checking <{}> == {: >80s}".format(self.book_title, ''), end='')
+        print("\r== Checking <{}> == {: >80s}".format(
+            self.book_title, ''), end='')
 
         sorted_volume = []
         for anchor in anchors:
@@ -157,44 +159,46 @@ class MHGVolume:
 
         self.pages = list(self.get_pages())
 
-        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)  # ignore SIGINT in child process
-        pool = multiprocessing.pool.Pool(self.client.opts['connections'])
-        signal.signal(signal.SIGINT, original_sigint_handler)
-
+        threads = []
+        max_thread = self.client.opts['connections']
         try:
-            pool.map(fetchpage, self.pages, chunksize=1)
-            pool.close()
-            pool.join()
-        except KeyboardInterrupt:
-            pool.terminate()
-            return
-
-        # for idx, page in enumerate(self.pages):
-        #     try:
-        #         page.retrieve()
-        #         print("Fetch: {:30s}\t[{:2.2f}%]: {}\r"
-        #               .format(self.volume_name, (idx + 1) / len(self.pages) * 100, page.storage_file_name),
-        #               end='',
-        #               flush=True)
-        #     except requests.exceptions.RetryError:
-        #         print("  >> {:>30s} [Failed] !!!".format(
-        #             self.volume_name), flush=True)
-        #         return
-
-        print("  >> {:30s} [Completed]".format(self.volume_name), flush=True)
-        # zip current volume
-        shutil.make_archive(volume_path,
-                            "zip",
-                            os.path.join(
-                                self.client.opts['download_dir'], self.title),
-                            self.volume_name)
-        shutil.rmtree(volume_path)
+            for i, p in enumerate(self.pages):
+                threads.append(threading.Thread(target=fetchpage, args=(p,)))
+                threads[i].start()
+                if (i + 1) % max_thread == 0:  # hold on and wait for thread finish every max_thread jobs
+                    for j in range(i - max_thread + 1, i + 1):
+                        threads[j].join()
+                elif i == len(self.pages) - 1:
+                    for j in range(i - len(self.pages) % max_thread + 1, i + 1):
+                        threads[j].join()
+                else:
+                    continue
+                print("Fetch: {:30s}\t[{:2.2f}%]: {}\r"
+                      .format(self.volume_name, (i + 1) / len(self.pages) * 100, p.storage_file_name),
+                      end='',
+                      flush=True)
+                print("  >> {:70s} [Completed]".format(
+                    self.volume_name), flush=True)
+            # zip current volume
+            shutil.make_archive(volume_path,
+                                "zip",
+                                os.path.join(
+                                    self.client.opts['download_dir'], self.title),
+                                self.volume_name)
+            shutil.rmtree(volume_path)
+        except Exception:
+            print("  >> {:>30s} [Failed] !!!".format(
+                self.volume_name), file=sys.stderr, flush=True)
 
 
 class MHGPage:
     def __init__(self, opts, client: MHGClient):
         self.opts = opts
         self.client = client
+        if 'retry_page' in self.client.opts.keys():
+            self.retry = self.client.opts['retry_page']
+        else:
+            self.retry = 0
 
     def __repr__(self):
         return "{:20s}\t{}\r".format(" ", self.storage_file_name)
@@ -234,15 +238,30 @@ class MHGPage:
             os.makedirs(dir_path, exist_ok=True)  # fix race condition error
 
         # print('==', self.uri, file_path)
-        self.client.retrieve(
-            self.uri,
-            file_path,
-            params={
-                'cid': self.opts['cid'],
-                'md5': self.opts['sl']['md5']
-            },
-            headers={
-                'Referer': self.opts['referer']
-            }
-        )
+        while(self.retry >= 0):
+            try:
+                proxy = MGHProxy().get()
+                self.retry -= 1
+                self.client.retrieve(
+                    self.uri,
+                    file_path,
+                    proxy,
+                    params={
+                        'cid': self.opts['cid'],
+                        'md5': self.opts['sl']['md5']
+                    },
+                    headers={
+                        'Referer': self.opts['referer']
+                    }
+                )
+                break
+            except Exception as err:
+                print(err, "\nproxy=", proxy, file=sys.stderr, flush=True)
+                MGHProxy().remove(proxy)
+                if self.retry >= 0:
+                    print("> Use another proxy to retry again ...\n",
+                          self.uri, "retry=", self.retry, file=sys.stderr, flush=True)
+                else:
+                    raise err
+
         return True
