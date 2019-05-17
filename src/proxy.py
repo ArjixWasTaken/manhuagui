@@ -1,13 +1,14 @@
-import threading
 import functools
+import json
+import threading
+from io import open
 from itertools import cycle
 from urllib.request import Request, urlopen
+
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
-import json
 
 lock = threading.Lock()
-MAX_PROXY = 30
 
 
 def synchronized(lock):
@@ -34,7 +35,8 @@ class Singleton(type):
 
 class MGHProxy(metaclass=Singleton):
     def __init__(self, opts):
-        if 'proxy' in opts.keys():
+        self.max_proxy = opts['max_proxy']
+        if len(opts['proxy']) > 0:
             self.proxy_set = set(opts['proxy'])
             self.proxy_cycle = cycle(opts['proxy'])
         else:
@@ -84,7 +86,7 @@ class MGHProxy(metaclass=Singleton):
                 continue
             pp.add("{}:{}".format(row.find_all('td')[
                 0].string, row.find_all('td')[1].string))
-            if len(pp) >= MAX_PROXY:
+            if len(pp) >= self.max_proxy:
                 break
 
         # merge with the exsting items

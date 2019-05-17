@@ -10,7 +10,7 @@ from proxy import MGHProxy
 
 global VERBOSE
 VERBOSE = False
-__version__ = '3.1.1'
+__version__ = '3.2.2'
 
 
 def vprint(*args, **kwargs):
@@ -29,8 +29,11 @@ def fetch_comic(opts, comic_id, comic_start_from=1):
 
 
 if __name__ == '__main__':
-    with open('config.json', encoding='utf8') as f:
-        opts = json.load(f)
+    with open('config-default.json', encoding='utf8') as f1, open('config.json', encoding='utf8') as f2:
+        opts = json.load(f1)
+        opts_user = json.load(f2)
+    for key in opts_user:
+        opts[key] = opts_user[key]
 
     parser = ArgumentParser(prog=sys.argv[0])
     parser.add_argument('-v', '--version', action='version',
@@ -54,6 +57,8 @@ if __name__ == '__main__':
     # init proxy
     MGHProxy(opts)
 
+    if args.update_proxy:
+        MGHProxy().update_all()
     if args.auto:
         if os.path.exists(opts['record_conf']):
             with open(opts['record_conf']) as f:
@@ -73,8 +78,6 @@ if __name__ == '__main__':
                 fetch_comic(opts, id, args.chapter)
             else:
                 fetch_comic(opts, id)
-    elif args.update_proxy:
-        MGHProxy(opts).update_all()
     else:
         parser.print_help()
     print()

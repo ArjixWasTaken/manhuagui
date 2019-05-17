@@ -177,8 +177,8 @@ class MHGVolume:
                       .format(self.volume_name, (i + 1) / len(self.pages) * 100, p.storage_file_name),
                       end='',
                       flush=True)
-                print("  >> {:70s} [Completed]".format(
-                    self.volume_name), flush=True)
+            print("  >> {:70s} [Completed]".format(
+                self.volume_name), flush=True)
             # zip current volume
             shutil.make_archive(volume_path,
                                 "zip",

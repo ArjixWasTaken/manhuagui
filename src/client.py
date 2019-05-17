@@ -49,7 +49,7 @@ class MHGClient():
     def retrieve(self, uri: str, dst: str, proxy: dict, **kwargs):
         res = retry2(
             lambda: self.session.get(
-                uri, stream=True, proxies=proxy, timeout=30, **kwargs),
+                uri, stream=True, proxies=proxy, timeout=self.opts['timeout'], **kwargs),
             max_retry=self.opts['retry'],
             backoff_factor=self.opts['backoff_factor']
         )
