@@ -23,20 +23,20 @@ python3 ./src/main.py -h
 
 ## Example
 
-1. would like to download comics in <https://tw.manhuagui.com/comic/19430/>
+- would like to download comics in <https://tw.manhuagui.com/comic/19430/>
 
 ````bash
 python3 ./src/main.py -i 19430        # fetch all chapter/albums
 python3 ./src/main.py -i 19430 -c 20  # start from chapter 21
 ````
 
-1. check and download new comics recorded from local config
+- check and download new comics recorded from local config
 
 ````bash
 python3 ./src/main.py -a
 ````
 
-1. fetch available proxies and save to config file
+- fetch available proxies and save to config file
 
 ````bash
 python3 ./src/main.py -u
