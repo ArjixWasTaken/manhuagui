@@ -41,6 +41,8 @@ if __name__ == '__main__':
                         help="Which chapter# to start with")
     parser.add_argument("-a", "--auto", action="store_true",
                         help="Resume/recheck ALL downloads by the records of history file")
+    parser.add_argument("-u", "--update_proxy", action="store_true",
+                        help="update proxy list")
     parser.add_argument("-d", "--debug", action="store_true",
                         help="verbose output")
     args = parser.parse_args()
@@ -71,6 +73,8 @@ if __name__ == '__main__':
                 fetch_comic(opts, id, args.chapter)
             else:
                 fetch_comic(opts, id)
+    elif args.update_proxy:
+        MGHProxy(opts).update_all()
     else:
         parser.print_help()
     print()

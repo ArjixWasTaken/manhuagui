@@ -1,8 +1,13 @@
 import threading
 import functools
 from itertools import cycle
+from urllib.request import Request, urlopen
+from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
+import json
 
 lock = threading.Lock()
+MAX_PROXY = 30
 
 
 def synchronized(lock):
@@ -30,36 +35,68 @@ class Singleton(type):
 class MGHProxy(metaclass=Singleton):
     def __init__(self, opts):
         if 'proxy' in opts.keys():
-            self.raw_proxies = opts['proxy']
-            self.proxies = cycle(opts['proxy'])
+            self.proxy_set = set(opts['proxy'])
+            self.proxy_cycle = cycle(opts['proxy'])
         else:
-            self.proxies = None
+            self.proxy_set = None
+            self.proxy_cycle = None
 
     @synchronized(lock)
     def get(self):
-        if self.proxies is None:
+        if self.proxy_cycle is None:
             return None
         return {
-            'https': next(self.proxies)
+            'https': next(self.proxy_cycle)
         }
 
     @synchronized(lock)
     def remove(self, e):
         try:
-            self.raw_proxies.remove(e['https'])
-            self.proxies = cycle(self.raw_proxies)
+            self.proxy_set.remove(e['https'])
+            self.proxy_cycle = cycle(self.proxy_set)
+            self.save_to_file()
         except ValueError:
             return
 
-            # if 'proxy' in self.opts.keys():
-            #     if type(self.opts['proxy']) is list:
-            #         random.seed(datetime.now())
-            #         rp = random.choice(self.opts['proxy'])
-            #     else:
-            #         rp = self.opts['proxy']
-            #     # print(">> proxy:", rp)
-            #     return {
-            #         'https': rp
-            #     }
-            # else:
-            #     return None
+    def update_all(self):
+        ua = UserAgent()  # From here we generate a random user agent
+        pp = set()  # Will contain proxies [ip, port]
+
+        # Retrieve latest proxies
+        proxies_req = Request('https://www.sslproxies.org/')
+        proxies_req.add_header('User-Agent', ua.random)
+        proxies_doc = urlopen(proxies_req).read().decode('utf8')
+        soup = BeautifulSoup(proxies_doc, 'html.parser')
+        proxies_table = soup.find(id='proxylisttable')
+
+        # Save proxies in the array
+        for row in proxies_table.tbody.find_all('tr'):
+            # sample:
+            # [<td>179.125.178.154</td>,
+            #  <td>8080</td>,
+            #  <td>BR</td>,
+            #  <td class="hm">Brazil</td>,
+            #  <td>elite proxy</td>,
+            #  <td class="hm">no</td>,
+            #  <td class="hx">yes</td>,
+            #  <td class="hm">7 seconds ago</td>]
+            if row.find_all('td')[6].string != "yes":  # enforce ssl proxy
+                continue
+            pp.add("{}:{}".format(row.find_all('td')[
+                0].string, row.find_all('td')[1].string))
+            if len(pp) >= MAX_PROXY:
+                break
+
+        # merge with the exsting items
+        self.proxy_set |= pp
+        self.proxy_cycle = cycle(self.proxy_set)
+        # save back to config file
+        self.save_to_file()
+
+    def save_to_file(self):
+        with open('config.json', 'r+', encoding='utf8') as f:
+            data = json.load(f)
+            data['proxy'] = list(self.proxy_set)
+            f.truncate(0)
+            f.seek(0)
+            json.dump(data, f, indent=4)
