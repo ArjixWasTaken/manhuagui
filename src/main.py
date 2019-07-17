@@ -59,13 +59,16 @@ if __name__ == '__main__':
 
     if args.update_proxy:
         MGHProxy().update_all()
+        print('Proxy list is updated.')
     if args.auto:
         if os.path.exists(opts['record_conf']):
-            with open(opts['record_conf']) as f:
+            with open(opts['record_conf'], encoding='utf8') as f:
                 records = json.load(f)
                 comic_ids = records.keys()
             for id in comic_ids:
-                fetch_comic(opts, id, records[id]["number"])
+                if records[id]['status'] == '已完結':
+                    continue
+                fetch_comic(opts, id, records[id]['number'])
         else:
             print("No history records found.({})".format(opts['record_conf']))
     elif args.id is not None:

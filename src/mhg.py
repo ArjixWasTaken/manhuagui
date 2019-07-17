@@ -5,16 +5,22 @@ import os
 import pprint
 import re
 import shutil
+import sys
 import threading
 import time
 import urllib
-import sys
+
 import bs4
 import lzstring
 
 import node
 from client import MHGClient
 from proxy import MGHProxy
+
+# from os import spawnle
+
+# from numpy.lib.function_base import select
+
 
 logger = logging.getLogger('manguagui')
 logger.addHandler(logging.StreamHandler())
@@ -28,13 +34,13 @@ def fetchpage(page):
 
 class MHGComic:
     def __init__(self, opts, comic_id, start_from=1, client: MHGClient = None):
+        if 'debug' in opts and opts['debug']:
+            logger.setLevel(logging.DEBUG)
         self.newline = True
         self.client = client if client else MHGClient(opts)
         self.id = str(comic_id)
         self.uri = self.client.opts['base_url'] + str(comic_id) + '/'
         self.volumes = list(self.get_volumes(start_from))
-        if 'debug' in opts and opts['debug']:
-            logger.setLevel(logging.DEBUG)
 
     def print_newline(self):
         if self.newline:
@@ -43,17 +49,20 @@ class MHGComic:
 
     def get_volumes(self, start_from):
         comic_soup = self.client.get_soup(self.uri)
+        logger.debug('soup=' + str(comic_soup))
         self.book_title = comic_soup.select_one(
             '.book-detail > .book-title > h1').text
+        self.book_status = comic_soup.select_one(
+            '.book-detail > .detail-list > .status > span > span').text
         anchors = comic_soup.select('.chapter-list > ul > li > a')
         if not anchors:  # for adult only pages, decrypt the chapters
             soup = lzstring.LZString().decompressFromBase64(
                 comic_soup.find('input', id='__VIEWSTATE')['value'])
             anchors = bs4.BeautifulSoup(soup, 'html.parser').select(
                 '.chapter-list > ul > li > a')
-        logger.debug('soup=' + str(comic_soup))
-        logger.debug('title=' + self.book_title)
-        logger.debug('anchors=' + str(anchors))
+        logger.debug('\ttitle=' + self.book_title)
+        logger.debug('\tstatus=' + self.book_status)
+        logger.debug('\tvols=' + str(anchors))
         print("\r== Checking <{}> == {: >80s}".format(
             self.book_title, ''), end='')
 
@@ -66,6 +75,7 @@ class MHGComic:
             vol['number'] = int(result[0]) if result else 0
             sorted_volume.append(vol)
         sorted_volume.sort(key=lambda x: x['number'])
+        sorted_volume[-1]['status'] = self.book_status
         self.save_record(self.client.opts['record_conf'], sorted_volume[-1])
 
         for vol in sorted_volume:
@@ -89,9 +99,10 @@ class MHGComic:
             records[self.id] = {'title': self.book_title,
                                 'latest': latest_vol['name'],
                                 'number': latest_vol['number'],
+                                'status': latest_vol['status'],
                                 'time': time.asctime(time.localtime())}
             json.dump(records, f, ensure_ascii=False,
-                      indent=4, sort_keys=True)
+                      indent=4)
 
     def retrieve(self):
         for c in self.volumes:
