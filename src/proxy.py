@@ -55,8 +55,11 @@ class MGHProxy(metaclass=Singleton):
     def remove(self, e):
         try:
             self.proxy_set.remove(e['https'])
-            self.proxy_cycle = cycle(self.proxy_set)
-            self.save_to_file()
+            if len(self.proxy_set) == 0:
+                self.update_all()
+            else:
+                self.proxy_cycle = cycle(self.proxy_set)
+                self.save_to_file()
         except ValueError:
             return
 
@@ -64,6 +67,8 @@ class MGHProxy(metaclass=Singleton):
         ua = UserAgent()  # From here we generate a random user agent
         pp = set()  # Will contain proxies [ip, port]
 
+        if self.proxy_set is None:
+            self.proxy_set = set()
         # Retrieve latest proxies
         proxies_req = Request('https://www.sslproxies.org/')
         proxies_req.add_header('User-Agent', ua.random)

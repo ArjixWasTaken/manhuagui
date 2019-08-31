@@ -42,8 +42,8 @@ class MHGClient():
 
         return res
 
-    def get_soup(self, uri: str, **kwargs):
-        res = self.get(uri, **kwargs)
+    def get_soup(self, uri: str, proxy=None, **kwargs):
+        res = self.get(uri, proxy, **kwargs)
         return bs4.BeautifulSoup(res.text, 'html.parser')
 
     def retrieve(self, uri: str, dst: str, proxy: dict, **kwargs):
