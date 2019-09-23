@@ -99,6 +99,7 @@ class MGHProxy(metaclass=Singleton):
         self.proxy_cycle = cycle(self.proxy_set)
         # save back to config file
         self.save_to_file()
+        print('Proxy list is updated.')
 
     def save_to_file(self):
         with open('config.json', 'r+', encoding='utf8') as f:

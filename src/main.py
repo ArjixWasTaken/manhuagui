@@ -59,7 +59,6 @@ if __name__ == '__main__':
 
     if args.update_proxy:
         MGHProxy().update_all()
-        print('Proxy list is updated.')
     if args.auto:
         if os.path.exists(opts['record_conf']):
             with open(opts['record_conf'], encoding='utf8') as f:
