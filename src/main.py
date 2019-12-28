@@ -65,7 +65,7 @@ if __name__ == '__main__':
                 records = json.load(f)
                 comic_ids = records.keys()
             for id in comic_ids:
-                if records[id]['status'] == '已完結':
+                if records[id]['status'] == '已完結' or records[id]['status'] == '已下架':
                     continue
                 fetch_comic(opts, id, records[id]['number'])
         else:

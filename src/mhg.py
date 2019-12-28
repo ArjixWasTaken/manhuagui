@@ -65,6 +65,13 @@ class MHGComic:
         logger.debug('\tvols=' + str(anchors))
         print("\r== Checking <{}> == {: >80s}".format(
             self.book_title, ''), end='')
+        if len(anchors) == 0:  # 已下架 or errors
+            if self.book_status == '已下架':
+                self.save_record(self.client.opts['record_conf'], {
+                                 'name': '', 'number': 0})
+            else:
+                logger.error('\nFailed to parse volumes!')
+            return
 
         sorted_volume = []
         for anchor in anchors:
@@ -75,9 +82,7 @@ class MHGComic:
             vol['number'] = int(result[0]) if result else 0
             sorted_volume.append(vol)
         sorted_volume.sort(key=lambda x: x['number'])
-        sorted_volume[-1]['status'] = self.book_status
         self.save_record(self.client.opts['record_conf'], sorted_volume[-1])
-
         for vol in sorted_volume:
             if vol['number'] < int(start_from):
                 continue
@@ -99,7 +104,7 @@ class MHGComic:
             records[self.id] = {'title': self.book_title,
                                 'latest': latest_vol['name'],
                                 'number': latest_vol['number'],
-                                'status': latest_vol['status'],
+                                'status': self.book_status,
                                 'time': time.asctime(time.localtime())}
             json.dump(records, f, ensure_ascii=False,
                       indent=4)
