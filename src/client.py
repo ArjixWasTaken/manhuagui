@@ -30,16 +30,11 @@ class MHGClient():
         # requests_log.propagate = True
 
     def get(self, uri: str, proxy=None, **kwargs):
-        try:
-            res = retry2(
-                lambda: self.session.get(uri, proxies=proxy, **kwargs)
-            )
-            if 'sleep' in self.opts.keys():
-                self.sleep()
-        except Exception as err:
-            print(err, ", proxy=", proxy)
-            raise err
-
+        res = retry2(
+            lambda: self.session.get(uri, proxies=proxy, **kwargs)
+        )
+        if 'sleep' in self.opts.keys():
+            self.sleep()
         return res
 
     def get_soup(self, uri: str, proxy=None, **kwargs):

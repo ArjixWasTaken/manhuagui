@@ -82,7 +82,6 @@ class MHGComic:
             vol['number'] = int(result[0]) if result else 0
             sorted_volume.append(vol)
         sorted_volume.sort(key=lambda x: x['number'])
-        self.save_record(self.client.opts['record_conf'], sorted_volume[-1])
         for vol in sorted_volume:
             if vol['number'] < int(start_from):
                 continue
@@ -111,7 +110,8 @@ class MHGComic:
 
     def retrieve(self):
         for c in self.volumes:
-            c.retrieve()
+            if c.retrieve():
+                self.save_record(self.client.opts['record_conf'], c)
 
 
 class MHGVolume:
@@ -171,7 +171,7 @@ class MHGVolume:
         # skip this volume if .zip already exists
         if self.is_skip():
             print("  >> {:30s} [Skipped]".format(self.volume_name))
-            return
+            return True
 
         self.pages = list(self.get_pages())
 
@@ -179,7 +179,8 @@ class MHGVolume:
         max_thread = self.client.opts['connections']
         try:
             for i, p in enumerate(self.pages):
-                threads.append(threading.Thread(target=fetchpage, args=(p,)))
+                threads.append(threading.Thread(
+                    target=fetchpage, args=(p,), daemon=True))
                 threads[i].start()
                 if (i + 1) % max_thread == 0:  # hold on and wait for thread finish every max_thread jobs
                     for j in range(i - max_thread + 1, i + 1):
@@ -205,6 +206,11 @@ class MHGVolume:
         except Exception:
             print("  >> {:>30s} [Failed] !!!".format(
                 self.volume_name), file=sys.stderr, flush=True)
+            return False
+        except KeyboardInterrupt as keyerr:
+            shutil.rmtree(volume_path)
+            raise keyerr
+        return True
 
 
 class MHGPage:
@@ -272,11 +278,10 @@ class MHGPage:
                 )
                 break
             except Exception as err:
-                print(err, "\nproxy=", proxy, file=sys.stderr, flush=True)
                 MGHProxy().remove(proxy)
                 if self.retry >= 0:
-                    print("> Use another proxy to retry again ...\n",
-                          self.uri, "retry=", self.retry, file=sys.stderr, flush=True)
+                    print("> Failed to fetch [", self.uri, "]. Retry with another proxy ...", "retry=", self.retry, "\n",
+                          file=sys.stderr, flush=True)
                 else:
                     raise err
 
