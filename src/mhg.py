@@ -100,12 +100,12 @@ class MHGComic:
         if os.path.exists(record_file):
             with open(record_file, 'r', encoding='utf8') as f:
                 records = json.load(f)
+        records[self.id] = {'title': self.book_title,
+                            'latest': latest_vol['name'],
+                            'number': latest_vol['number'],
+                            'status': self.book_status,
+                            'time': time.asctime(time.localtime())}
         with open(record_file, 'w', encoding='utf8') as f:
-            records[self.id] = {'title': self.book_title,
-                                'latest': latest_vol['name'],
-                                'number': latest_vol['number'],
-                                'status': self.book_status,
-                                'time': time.asctime(time.localtime())}
             json.dump(records, f, ensure_ascii=False,
                       indent=4)
 
