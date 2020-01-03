@@ -83,6 +83,7 @@ class MHGComic:
             sorted_volume.append(vol)
         sorted_volume.sort(key=lambda x: x['number'])
         for vol in sorted_volume:
+            self.save_record(self.client.opts['record_conf'], vol)
             if vol['number'] < int(start_from):
                 continue
             volume = MHGVolume(urllib.parse.urljoin(
@@ -110,8 +111,7 @@ class MHGComic:
 
     def retrieve(self):
         for c in self.volumes:
-            if c.retrieve():
-                self.save_record(self.client.opts['record_conf'], c)
+            c.retrieve()
 
 
 class MHGVolume:
