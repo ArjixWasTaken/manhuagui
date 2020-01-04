@@ -111,5 +111,5 @@ data/
 
 # VS code setting folder
 .vscode/
-records.json
-config.json
+records.json*
+config.json*

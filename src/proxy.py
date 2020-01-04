@@ -60,8 +60,8 @@ class MGHProxy(metaclass=Singleton):
             else:
                 self.proxy_cycle = cycle(self.proxy_set)
                 self.save_to_file()
-        except ValueError:
-            return
+        except (ValueError, KeyError):
+            pass
 
     def update_all(self):
         ua = UserAgent()  # From here we generate a random user agent
