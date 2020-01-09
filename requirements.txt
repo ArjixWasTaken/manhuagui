@@ -1,3 +1,4 @@
 lzstring
 bs4
 requests
+fake_useragent
