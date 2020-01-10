@@ -17,6 +17,22 @@ A cmdline comic downloader for [manhuagui.com](https://tw.manhuagui.com/).
 
 ## Usage
 
+- If you do not already have Node.js, install it and add to path, such as
+
+````bash
+sudo apt-get install nodejs
+````
+
+- Before use, first create your own config file
+
+````bash
+cp config-default.json config.json
+````
+
+- Change any setting you desire by editing `config.json` file.
+
+- Run with
+
 ````bash
 python3 ./src/main.py -h
 ````
