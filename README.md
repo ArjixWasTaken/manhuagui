@@ -10,52 +10,52 @@ A cmdline comic downloader for [manhuagui.com](https://tw.manhuagui.com/).
 - Auto detect completed volume
 - Auto sort volume list
 - Progress report
-- Auto save download progress of each comic
-- Auto download all comics saved locally
+- Auto save download progress(chapters) of each comic
+- Auto update all comics saved locally
 - Auto fetch available proxies
 - Auto remove dead proxy
 
-## Usage
+## Installation
 
 - If you do not already have Node.js, install it and add to path, such as
 
-````bash
+```bash
 sudo apt-get install nodejs
-````
+```
 
-- Before use, first create your own config file
+- Change any setting you desire by creating `config.json` file. For example, set your own destination for storing comics. (See config.example)
 
-````bash
-cp config-default.json config.json
-````
+> Be careful when change settings like 'backoff_factor', 'sleep', 'connections'. You might be probably got banned by website if too aggressive.
 
-- Change any setting you desire by editing `config.json` file.
+## Usage
 
 - Run with
 
-````bash
+```bash
 python3 ./src/main.py -h
-````
+```
 
-## Example
+## Basic example
 
 - would like to download comics in <https://tw.manhuagui.com/comic/19430/>
 
-````bash
+```bash
 python3 ./src/main.py -i 19430        # fetch all chapter/albums
 python3 ./src/main.py -i 19430 -c 20  # start from chapter 21
-````
+```
 
-- check and download new comics recorded from local config
+- check and download new comics recorded in local config file
 
-````bash
+```bash
 python3 ./src/main.py -a
-````
+```
 
 - fetch available proxies and save to config file
 
-````bash
+```bash
 python3 ./src/main.py -u
-````
+```
 
 ## Known issue
+
+- Exception occurs during another exception. This might be triggered when multiple downloads through proxy are failed. [Not affect the download process]

@@ -102,9 +102,12 @@ class MGHProxy(metaclass=Singleton):
         print('Proxy list is updated.')
 
     def save_to_file(self):
-        with open('config.json', 'r+', encoding='utf8') as f:
-            data = json.load(f)
+        data = {}
+        try:
+            with open('config.json', 'r', encoding='utf8') as f:
+                data = json.load(f)
+        except IOError:
+            pass
+        with open('config.json', 'w', encoding='utf8') as f:
             data['proxy'] = list(self.proxy_set)
-            f.truncate(0)
-            f.seek(0)
             json.dump(data, f, indent=4)

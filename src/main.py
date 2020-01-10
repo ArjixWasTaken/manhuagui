@@ -29,11 +29,15 @@ def fetch_comic(opts, comic_id, comic_start_from=1):
 
 
 if __name__ == '__main__':
-    with open('config-default.json', encoding='utf8') as f1, open('config.json', encoding='utf8') as f2:
-        opts = json.load(f1)
-        opts_user = json.load(f2)
-    for key in opts_user:
-        opts[key] = opts_user[key]
+    with open('config-default.json', encoding='utf8') as f:
+        opts = json.load(f)
+    try:  # overwrite options with customized user setttings
+        with open('config.json', encoding='utf8') as f:
+            opts_user = json.load(f)
+            for key in opts_user:
+                opts[key] = opts_user[key]
+    except IOError:
+        pass
 
     parser = ArgumentParser(prog=sys.argv[0])
     parser.add_argument('-v', '--version', action='version',
@@ -80,6 +84,6 @@ if __name__ == '__main__':
                 fetch_comic(opts, id, args.chapter)
             else:
                 fetch_comic(opts, id)
-    else:
+    elif not args.update_proxy:
         parser.print_help()
     print()
