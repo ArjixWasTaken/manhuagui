@@ -36,6 +36,7 @@ class Singleton(type):
 class MGHProxy(metaclass=Singleton):
     def __init__(self, opts):
         self.max_proxy = opts['max_proxy']
+        self.min_proxy = opts['connections'] / 2
         if len(opts['proxy']) > 0:
             self.proxy_set = set(opts['proxy'])
             self.proxy_cycle = cycle(opts['proxy'])
@@ -55,7 +56,7 @@ class MGHProxy(metaclass=Singleton):
     def remove(self, e):
         try:
             self.proxy_set.remove(e['https'][8:])  # remove 'https://'
-            if len(self.proxy_set) == 0:
+            if len(self.proxy_set) <= self.min_proxy:
                 self.update_all()
             else:
                 self.proxy_cycle = cycle(self.proxy_set)

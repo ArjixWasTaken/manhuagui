@@ -28,8 +28,9 @@ logger.setLevel(logging.INFO)
 pp = pprint.PrettyPrinter(indent=4)
 
 
-def fetchpage(page):
+def fetchpage(page, progress_str):
     page.retrieve()
+    print("Fetch: {}\r".format(progress_str), end='', flush=True)
 
 
 class MHGComic:
@@ -179,8 +180,10 @@ class MHGVolume:
         max_thread = self.client.opts['connections']
         try:
             for i, p in enumerate(self.pages):
+                progress_str = "{:30s}\ttotal({}): {}".format(
+                    self.volume_name, len(self.pages), p.storage_file_name)
                 threads.append(threading.Thread(
-                    target=fetchpage, args=(p,), daemon=True))
+                    target=fetchpage, args=(p, progress_str), daemon=True))
                 threads[i].start()
                 if (i + 1) % max_thread == 0:  # hold on and wait for thread finish every max_thread jobs
                     for j in range(i - max_thread + 1, i + 1):
@@ -188,12 +191,6 @@ class MHGVolume:
                 elif i == len(self.pages) - 1:
                     for j in range(i - len(self.pages) % max_thread + 1, i + 1):
                         threads[j].join()
-                else:
-                    continue
-                print("Fetch: {:30s}\t[{:2.2f}%]: {}\r"
-                      .format(self.volume_name, (i + 1) / len(self.pages) * 100, p.storage_file_name),
-                      end='',
-                      flush=True)
             print("  >> {:70s} [Completed]".format(
                 self.volume_name), flush=True)
             # zip current volume
@@ -263,7 +260,6 @@ class MHGPage:
         while(self.retry >= 0):
             try:
                 proxy = MGHProxy().get()
-                self.retry -= 1
                 self.client.retrieve(
                     self.uri,
                     file_path,
@@ -279,8 +275,9 @@ class MHGPage:
                 break
             except Exception as err:
                 MGHProxy().remove(proxy)
-                if self.retry >= 0:
-                    print("> Failed to fetch [", self.uri, "]. Retry with another proxy ...", "retry=", self.retry, "\n",
+                if self.retry > 0:
+                    self.retry -= 1
+                    print("> Failed to fetch [", self.uri, "]. Retry with another proxy ...", "retry=", self.retry, "\r",
                           file=sys.stderr, flush=True)
                 else:
                     raise err
