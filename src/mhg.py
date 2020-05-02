@@ -84,16 +84,17 @@ class MHGComic:
             sorted_volume.append(vol)
         sorted_volume.sort(key=lambda x: x['number'])
         for vol in sorted_volume:
-            self.save_record(self.client.opts['record_conf'], vol)
             if vol['number'] < int(start_from):
                 continue
             volume = MHGVolume(urllib.parse.urljoin(
                 self.uri, vol['link']), self.book_title, vol['name'], self.client)
             if volume.is_skip():
+                logger.debug('\n - File exists. Skip ' + volume.volume_name)
                 continue
             self.print_newline()
             print(volume)
             yield volume
+            self.save_record(self.client.opts['record_conf'], vol)
 
     def save_record(self, record_file, latest_vol):
         # print(self.id, self.book_title, latest_vol['name'])
@@ -266,7 +267,7 @@ class MHGPage:
                     proxy,
                     params={
                         'cid': self.opts['cid'],
-                        'md5': self.opts['sl']['md5']
+                        'md5': self.opts['sl']['m']
                     },
                     headers={
                         'Referer': self.opts['referer']
