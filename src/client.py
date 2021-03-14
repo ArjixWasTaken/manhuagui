@@ -1,8 +1,11 @@
 import random
 import time
+import sys
+
 import bs4
 import requests
 
+from proxy import MGHProxy
 from retry import requests_retry_session
 from retry2 import retry2
 
@@ -21,6 +24,10 @@ class MHGClient():
         self.session.headers.update({
             'User-Agent': opts['user_agent']
         })
+        if 'retry_page' in opts.keys():
+            self.retry_page = opts['retry_page']
+        else:
+            self.retry_page = 0
 
         self.chunk_size = opts['chunk_size'] if opts['chunk_size'] else 512
         # logging.basicConfig()
@@ -29,31 +36,46 @@ class MHGClient():
         # requests_log.setLevel(logging.DEBUG)
         # requests_log.propagate = True
 
-    def get(self, uri: str, proxy=None, **kwargs):
-        res = retry2(
-            lambda: self.session.get(uri, proxies=proxy, **kwargs)
-        )
+    def get(self, uri: str, **kwargs):
+        res = self._get(uri, **kwargs)
         if 'sleep' in self.opts.keys():
             self.sleep()
         return res
 
-    def get_soup(self, uri: str, proxy=None, **kwargs):
-        res = self.get(uri, proxy, **kwargs)
+    def get_soup(self, uri: str, **kwargs):
+        res = self.get(uri, **kwargs)
         return bs4.BeautifulSoup(res.text, 'html.parser')
 
-    def retrieve(self, uri: str, dst: str, proxy: dict, **kwargs):
-        res = retry2(
-            lambda: self.session.get(
-                uri, stream=True, proxies=proxy, timeout=self.opts['timeout'], **kwargs),
-            max_retry=self.opts['retry'],
-            backoff_factor=self.opts['backoff_factor']
-        )
+    def retrieve(self, uri: str, dst: str, **kwargs):
+        res = self._get(uri, stream=True, **kwargs)
         with open(dst, 'wb') as f:
             for chunk in res.iter_content(chunk_size=self.chunk_size):
                 if chunk:
                     f.write(chunk)
         if 'sleep' in self.opts.keys():
             self.sleep()
+
+    def _get(self, uri: str, stream=False, **kwargs):
+        retry = self.retry_page
+        while(retry >= 0):
+            try:
+                proxy = MGHProxy().get()
+                res = retry2(
+                    lambda: self.session.get(
+                        uri, proxies=proxy, timeout=self.opts['timeout'], stream=stream, **kwargs),
+                    max_retry=self.opts['retry'],
+                    backoff_factor=self.opts['backoff_factor']
+                )
+                break
+            except Exception as err:
+                MGHProxy().remove(proxy)
+                if retry > 0:
+                    retry -= 1
+                    print("> Failed to fetch [", uri, "]. Retry with another proxy ...", "retry=", retry, "\r",
+                          file=sys.stderr, flush=True)
+                else:
+                    raise err from None
+        return res
 
     def sleep(self):
         time.sleep(random.randrange(*self.opts['sleep']) / 1000)

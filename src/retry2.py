@@ -9,4 +9,4 @@ def retry2(handle: callable, backoff_factor: float = 0.3, max_retry: int = 5):
             time.sleep(backoff_factor)
             return retry2(handle, backoff_factor, max_retry=max_retry - 1)
         else:
-            raise err
+            raise err from None

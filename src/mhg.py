@@ -15,7 +15,6 @@ import lzstring
 
 import node
 from client import MHGClient
-from proxy import MGHProxy
 
 # from os import spawnle
 
@@ -207,7 +206,7 @@ class MHGVolume:
             return False
         except KeyboardInterrupt as keyerr:
             shutil.rmtree(volume_path)
-            raise keyerr
+            raise keyerr from None
         return True
 
 
@@ -215,10 +214,6 @@ class MHGPage:
     def __init__(self, opts, client: MHGClient):
         self.opts = opts
         self.client = client
-        if 'retry_page' in self.client.opts.keys():
-            self.retry = self.client.opts['retry_page']
-        else:
-            self.retry = 0
 
     def __repr__(self):
         return "{:20s}\t{}\r".format(" ", self.storage_file_name)
@@ -258,29 +253,15 @@ class MHGPage:
             os.makedirs(dir_path, exist_ok=True)  # fix race condition error
 
         # print('==', self.uri, file_path)
-        while(self.retry >= 0):
-            try:
-                proxy = MGHProxy().get()
-                self.client.retrieve(
-                    self.uri,
-                    file_path,
-                    proxy,
-                    params={
-                        'cid': self.opts['cid'],
-                        'md5': self.opts['sl']['m']
-                    },
-                    headers={
-                        'Referer': self.opts['referer']
-                    }
-                )
-                break
-            except Exception as err:
-                MGHProxy().remove(proxy)
-                if self.retry > 0:
-                    self.retry -= 1
-                    print("> Failed to fetch [", self.uri, "]. Retry with another proxy ...", "retry=", self.retry, "\r",
-                          file=sys.stderr, flush=True)
-                else:
-                    raise err
-
+        self.client.retrieve(
+            self.uri,
+            file_path,
+            params={
+                'cid': self.opts['cid'],
+                'md5': self.opts['sl']['m']
+            },
+            headers={
+                'Referer': self.opts['referer']
+            }
+        )
         return True

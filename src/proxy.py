@@ -37,7 +37,7 @@ class MGHProxy(metaclass=Singleton):
     def __init__(self, opts):
         self.max_proxy = opts['max_proxy']
         self.min_proxy = opts['connections'] / 2
-        if len(opts['proxy']) > 0:
+        if len(opts['proxy']) > 0 and self.max_proxy > 0:
             self.proxy_set = set(opts['proxy'])
             self.proxy_cycle = cycle(opts['proxy'])
         else:
@@ -67,6 +67,9 @@ class MGHProxy(metaclass=Singleton):
     def update_all(self):
         ua = UserAgent()  # From here we generate a random user agent
         pp = set()  # Will contain proxies [ip, port]
+
+        if self.max_proxy == 0:
+            return  # do not trigger proxy if max proxy = 0
 
         if self.proxy_set is None:
             self.proxy_set = set()
