@@ -56,6 +56,12 @@ python3 ./src/main.py -a
 python3 ./src/main.py -u
 ```
 
+## Configuration
+
+- All configs are loaded from config-default.json. Please do NOT edit default file since this file would be changed.
+- Set your customizations as 'config.json'. It would overwrite default config. (see config.example)
+- max_proxy = 0 by default. If you want to enable proxy behavior. please set max_proxy > 0 as you want.
+
 ## Known issue
 
 - Exception occurs during another exception. This might be triggered when multiple downloads through proxy are failed. [Not affect the download process]

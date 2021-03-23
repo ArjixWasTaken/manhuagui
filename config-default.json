@@ -12,6 +12,6 @@
   "timeout": 30,
   "retry_page": 10,
   "connections": 1,
-  "max_proxy": 5,
+  "max_proxy": 0,
   "proxy": []
 }
