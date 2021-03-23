@@ -71,7 +71,7 @@ class MHGClient():
                 MGHProxy().remove(proxy)
                 if retry > 0:
                     retry -= 1
-                    print("> Failed to fetch [", uri, "]. Retry with another proxy ...", "retry=", retry, "\r",
+                    print("\n> Failed to fetch [", uri, "]. Retry with another proxy ...", "retry=", retry, "\r",
                           file=sys.stderr, flush=True)
                 else:
                     raise err from None

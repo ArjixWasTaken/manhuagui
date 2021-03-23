@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import pprint
+import queue
 import re
 import shutil
 import sys
@@ -25,11 +26,6 @@ logger = logging.getLogger('manguagui')
 logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.INFO)
 pp = pprint.PrettyPrinter(indent=4)
-
-
-def fetchpage(page, progress_str):
-    page.retrieve()
-    print("Fetch: {}\r".format(progress_str), end='', flush=True)
 
 
 class MHGComic:
@@ -125,8 +121,7 @@ class MHGVolume:
     def __repr__(self):
         return '- [{title} : {volume_name}]'.format(
             title=self.title,
-            volume_name=self.volume_name,
-            uri=self.uri
+            volume_name=self.volume_name
         )
 
     def get_pages_opts(self):
@@ -179,18 +174,21 @@ class MHGVolume:
         threads = []
         max_thread = self.client.opts['connections']
         try:
+            # fill job queue info
+            q = queue.Queue()
             for i, p in enumerate(self.pages):
                 progress_str = "{:30s}\ttotal({}): {}".format(
                     self.volume_name, len(self.pages), p.storage_file_name)
-                threads.append(threading.Thread(
-                    target=fetchpage, args=(p, progress_str), daemon=True))
+                q.put({
+                    'page': p,
+                    'progress': progress_str
+                })
+            # create workers
+            for i in range(max_thread):
+                threads.append(WorkerThread(q))
+            for i in range(max_thread):
                 threads[i].start()
-                if (i + 1) % max_thread == 0:  # hold on and wait for thread finish every max_thread jobs
-                    for j in range(i - max_thread + 1, i + 1):
-                        threads[j].join()
-                elif i == len(self.pages) - 1:
-                    for j in range(i - len(self.pages) % max_thread + 1, i + 1):
-                        threads[j].join()
+                threads[i].join()
             print("  >> {:70s} [Completed]".format(
                 self.volume_name), flush=True)
             # zip current volume
@@ -199,15 +197,15 @@ class MHGVolume:
                                 os.path.join(
                                     self.client.opts['download_dir'], self.title),
                                 self.volume_name)
-            shutil.rmtree(volume_path)
-        except Exception:
+        except KeyboardInterrupt:
+            print("  >> {:>30s} Interrupted.".format(
+                self.volume_name), file=sys.stderr, flush=True)
+        except Exception as err:
             print("  >> {:>30s} [Failed] !!!".format(
                 self.volume_name), file=sys.stderr, flush=True)
-            return False
-        except KeyboardInterrupt as keyerr:
-            shutil.rmtree(volume_path)
-            raise keyerr from None
-        return True
+            print(err)
+        finally:
+            shutil.rmtree(volume_path, ignore_errors=True)
 
 
 class MHGPage:
@@ -218,7 +216,7 @@ class MHGPage:
     def __repr__(self):
         return "{:20s}\t{}\r".format(" ", self.storage_file_name)
 
-    @property
+    @ property
     def uri(self):
         # HACK
         # don't encode filename as url, especially '(' and ')'
@@ -232,11 +230,11 @@ class MHGPage:
         )
         return url + self.opts['file']
 
-    @property
+    @ property
     def dir_name(self):
         return os.path.join(self.opts['title'], self.opts['volume_name'])
 
-    @property
+    @ property
     def storage_file_name(self):
         return '{page_num}-{file_name}'.format(
             page_num='%03d' % self.opts['page_num'],
@@ -265,3 +263,25 @@ class MHGPage:
             }
         )
         return True
+
+
+class WorkerThread(threading.Thread):
+    def __init__(self, queue: queue.Queue):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.exception = None
+        self.queue = queue
+
+    def run(self):
+        try:
+            while self.queue.qsize() > 0:
+                t = self.queue.get()
+                print("Fetch: {}\r".format(t['progress']), end='', flush=True)
+                t['page'].retrieve()
+        except Exception as err:
+            self.exception = err
+
+    def join(self):
+        threading.Thread.join(self)
+        if self.exception:  # pass worker exception to caller
+            raise self.exception from None
