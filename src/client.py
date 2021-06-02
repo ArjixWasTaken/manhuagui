@@ -36,14 +36,14 @@ class MHGClient():
         # requests_log.setLevel(logging.DEBUG)
         # requests_log.propagate = True
 
-    def get(self, uri: str, **kwargs):
-        res = self._get(uri, **kwargs)
+    def get(self, uri: str, use_proxy=True, **kwargs):
+        res = self._get(uri, use_proxy=use_proxy, **kwargs)
         if 'sleep' in self.opts.keys():
             self.sleep()
         return res
 
-    def get_soup(self, uri: str, **kwargs):
-        res = self.get(uri, **kwargs)
+    def get_soup(self, uri: str, use_proxy=True, ** kwargs):
+        res = self.get(uri, use_proxy=use_proxy, ** kwargs)
         return bs4.BeautifulSoup(res.text, 'html.parser')
 
     def retrieve(self, uri: str, dst: str, **kwargs):
@@ -55,11 +55,11 @@ class MHGClient():
         if 'sleep' in self.opts.keys():
             self.sleep()
 
-    def _get(self, uri: str, stream=False, **kwargs):
+    def _get(self, uri: str, use_proxy=True, stream=False, **kwargs):
         retry = self.retry_page
         while(retry >= 0):
             try:
-                proxy = MGHProxy().get()
+                proxy = MGHProxy().get() if use_proxy else None
                 res = retry2(
                     lambda: self.session.get(
                         uri, proxies=proxy, timeout=self.opts['timeout'], stream=stream, **kwargs),
@@ -71,9 +71,9 @@ class MHGClient():
                 MGHProxy().remove(proxy)
                 if retry > 0:
                     retry -= 1
-                    print("\n> Failed to fetch [", uri, "]. Retry with another proxy ...", "retry=", retry, "\r",
-                          file=sys.stderr, flush=True)
                 else:
+                    print("\n> Failed to fetch [", uri, "].", "\r",
+                          file=sys.stderr, flush=True)
                     raise err from None
         return res
 

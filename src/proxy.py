@@ -54,6 +54,8 @@ class MGHProxy(metaclass=Singleton):
 
     @synchronized(lock)
     def remove(self, e):
+        if e is None:
+            return
         try:
             self.proxy_set.remove(e['https'][8:])  # remove 'https://'
             if len(self.proxy_set) <= self.min_proxy:

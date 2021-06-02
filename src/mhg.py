@@ -186,8 +186,8 @@ class MHGVolume:
             # create workers
             for i in range(max_thread):
                 threads.append(WorkerThread(q))
-            for i in range(max_thread):
                 threads[i].start()
+            for i in range(max_thread):
                 threads[i].join()
             print("  >> {:70s} [Completed]".format(
                 self.volume_name), flush=True)
@@ -276,12 +276,12 @@ class WorkerThread(threading.Thread):
         try:
             while self.queue.qsize() > 0:
                 t = self.queue.get()
-                print("Fetch: {}\r".format(t['progress']), end='', flush=True)
                 t['page'].retrieve()
+                print("Fetch: {}\r".format(t['progress']), end='', flush=True)
         except Exception as err:
             self.exception = err
 
     def join(self):
         threading.Thread.join(self)
         if self.exception:  # pass worker exception to caller
-            raise self.exception from None
+            raise self.exception
